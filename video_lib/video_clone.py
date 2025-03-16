@@ -27,41 +27,34 @@ def slice_video(input_path, output_path, duration):
 
 
 
-
-
 def join_videos(video_paths, output_path="output.mp4"):
     try:
-        # Load all video files
-        video_clips = [cv2.VideoCapture(path) for path in video_paths]
+        # Load all video clips
+        clips = [VideoFileClip(path) for path in video_paths]
 
-        # Find the maximum width and height across all videos
-        max_width = max(int(clip.get(cv2.CAP_PROP_FRAME_WIDTH)) for clip in video_clips)
-        max_height = max(int(clip.get(cv2.CAP_PROP_FRAME_HEIGHT)) for clip in video_clips)
-        fps = int(video_clips[0].get(cv2.CAP_PROP_FPS))  # Use FPS from the first video
+        # Find the max width & height among all videos
+        max_width = max(clip.w for clip in clips)
+        max_height = max(clip.h for clip in clips)
 
-        # Define the codec and create VideoWriter
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4
-        out = cv2.VideoWriter(output_path, fourcc, fps, (max_width, max_height))
+        # Resize & pad videos to match the max dimensions
+        def resize_and_pad(clip):
+            return clip.resize(height=max_height).resize(width=max_width)
 
-        for clip in video_clips:
-            while True:
-                ret, frame = clip.read()
-                if not ret:
-                    break  # Stop reading when video ends
-                
-                # Resize frame to match max dimensions
-                resized_frame = cv2.resize(frame, (max_width, max_height))
-                
-                # Write the resized frame
-                out.write(resized_frame)
+        resized_clips = [resize_and_pad(clip) for clip in clips]
 
-        # Release resources
-        for clip in video_clips:
-            clip.release()
-        out.release()
+        # Concatenate videos smoothly
+        final_clip = concatenate_videoclips(resized_clips, method="compose")
 
-        print(f"✅ Video successfully saved as {output_path}")
+        # Export merged video
+        final_clip.write_videofile(output_path, codec="libx264", fps=clips[0].fps, preset="ultrafast")
+
+        # Close resources
+        for clip in clips:
+            clip.close()
+
+        print(f"✅ Successfully merged and saved as {output_path}")
         return True
+    
     except Exception as e:
         print(f"❌ Error: {e}")
         return False
@@ -98,6 +91,9 @@ def fetch_pexels_videos(query, output_path, duration, per_page=3, orientation="p
                         video_flag = True
                         print(f"Downloaded: {query}")
                         break
+                    else:
+                        print(f"Video duration is less than {duration} seconds. Skipping...")
+                        os.remove(output_path)
                 else:
                     print(f"Failed to download video {video_id}")
         return video_flag
