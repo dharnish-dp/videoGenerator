@@ -84,16 +84,22 @@ def fetch_pexels_videos(query, output_path, duration, per_page=3, orientation="p
                 # Download and save the video
                 video_response = requests.get(video_url, stream=True)
                 if video_response.status_code == 200:
-                    with open(output_path, "wb") as file:
+                    temp_video = output_path.replace(".mp4", "_temp.mp4")  # Temporary file
+                    with open(temp_video, "wb") as file:
                         for chunk in video_response.iter_content(1024):
                             file.write(chunk)
-                    if get_video_duration(output_path)>duration: 
+                    
+                    if get_video_duration(temp_video) > duration: 
+                        # Remove audio
+                        clip = VideoFileClip(temp_video).without_audio()
+                        clip.write_videofile(output_path, codec="libx264", audio=False)
+                        os.remove(temp_video)  # Clean up
                         video_flag = True
-                        print(f"Downloaded: {query}")
+                        print(f"Downloaded (No Audio): {query}")
                         break
                     else:
                         print(f"Video duration is less than {duration} seconds. Skipping...")
-                        os.remove(output_path)
+                        os.remove(temp_video)
                 else:
                     print(f"Failed to download video {video_id}")
         return video_flag
@@ -140,7 +146,7 @@ def video_creation(data,root_path,video_type='portrait'):
 
 if __name__=='__main__':
     # data_set = [('talent', 6.722), ('recognition', 13.386), ('matters', 19.424), ('belief', 23)]
-    data_set = [('work', 6.56), ('craft', 12.91), ('love', 18.971), ('work', 25.205), ('dedication', 31.707), ('persistence', 38.069), ('belief', 45)]
+    data_set =  [('bookstore', 6.56), ('air', 13.015), ('symbols', 19.597), ('room', 25.983), ('Library', 31.997), ('voice', 42)]
     video_creation(data_set,'data/20250316_143140')
     
     
